@@ -39,8 +39,9 @@ XUI_REPO="MHSanaei/3x-ui"
 RESULT=/root/3x-ui.txt
 XUI_ENV=/etc/x-ui/install-result.env
 # Сайты для маскировки REALITY: нужны TLS 1.3 и HTTP/2. Берём первый доступный.
-# Apple, iCloud, Microsoft и домены .ru сам Xray не советует – их тут нет.
-SNI_CANDIDATES=(dl.google.com www.amazon.com www.samsung.com www.yahoo.com)
+# Apple, iCloud, Microsoft и домены .ru сам Xray не советует – их тут нет. Google тоже нет:
+# SNI Google на IP не из сети Google заметен, а сервисы Google в России замедляют.
+SNI_CANDIDATES=(www.samsung.com www.amazon.com www.yahoo.com)
 
 ALL_PROTOS=(reality hy2 xhttp ws trojan vmess ss tuic wg awg awg3 mtproto)
 # Обычный WireGuard в России режет DPI (проверено 2026-09-27: рукопожатие доходит до сервера,
@@ -296,7 +297,7 @@ main() {
   # Восстановление из копии (restore_main) отключено до версии 1.2: его ещё не проверили на настоящем сервере.
   [[ -z $restore ]] || die "Восстановление из копии появится в версии 1.2. Пока доступна только резервная копия: kit backup."
   local re_host='^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
-  [[ -z $SNI || $SNI =~ $re_host ]] || die "--sni: нужно имя сайта, например dl.google.com"
+  [[ -z $SNI || $SNI =~ $re_host ]] || die "--sni: нужно имя сайта, например www.samsung.com"
   [[ -z $DOMAIN || $DOMAIN =~ $re_host ]] || die "--domain: нужно имя вашего домена, например vpn.example.com"
   [[ -z $DOMAIN || -z $SNI ]] || die "--sni и --domain вместе не нужны: выберите либо чужой сайт (--sni), либо свой домен (--domain)."
   [[ -z $DOMAIN || $multi == no ]] || die "Свой домен работает только в режиме «всё на 443» – уберите --multi-port."
