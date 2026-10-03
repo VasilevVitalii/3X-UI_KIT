@@ -135,6 +135,26 @@ def merge_awg(main_yaml, awg_yaml):
     return yaml.safe_dump(main, allow_unicode=True, sort_keys=False).encode()
 
 
+# ТСПУ у части провайдеров режет TCP до IP сервера (REALITY, XHTTP), а UDP пропускает.
+# В select-группе по умолчанию выбран первый прокси – ставим UDP-протоколы вперёд.
+UDP_FIRST = ("hysteria2", "hysteria", "tuic", "wireguard")
+
+
+def prefer_udp(clash_yaml):
+    """UDP-протоколы – первыми во всех группах (Hysteria2, затем AmneziaWG), остальной порядок как был."""
+    cfg = yaml.safe_load(clash_yaml)
+    if not isinstance(cfg, dict):
+        return clash_yaml
+    rank = {p["name"]: UDP_FIRST.index(p.get("type")) for p in cfg.get("proxies") or []
+            if isinstance(p, dict) and p.get("name") and p.get("type") in UDP_FIRST}
+    if not rank:
+        return clash_yaml
+    for g in cfg.get("proxy-groups") or []:
+        if isinstance(g.get("proxies"), list):
+            g["proxies"] = sorted(g["proxies"], key=lambda x: rank.get(x, len(UDP_FIRST)))
+    return yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False).encode()
+
+
 def load_rules():
     """Правила из RULES_FILE: список «ТИП,ЗНАЧЕНИЕ» в ключе via_vpn. Нет файла – None (как раньше)."""
     try:
@@ -242,6 +262,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif code == 200 and "text/plain" in headers.get("content-type", ""):
                 body = strip_links(body)
             if code == 200 and clash:
+                body = prefer_udp(body)
                 rules = load_rules()
                 if rules:
                     body = apply_rules(body, rules)

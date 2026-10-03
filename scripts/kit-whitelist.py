@@ -253,8 +253,17 @@ def check_outbounds(tpl):
             "проверьте раздел «Исходящие» в панели.")
 
 
+def restart_xray(api, token):
+    # Панель применяет шаблон только при перезапуске Xray – сам по себе xray/update ничего не меняет.
+    call(api, token, "POST", "server/restartXrayService")
+
+
 def apply(api, token, tpl, test_url, old):
     save_template(api, token, tpl, test_url)
+    try:
+        restart_xray(api, token)
+    except RuntimeError:
+        pass  # не запустился – увидим ниже по состоянию и откатим
     for _ in range(15):
         time.sleep(2)
         state, err = xray_state(api, token)
@@ -264,6 +273,7 @@ def apply(api, token, tpl, test_url, old):
             break
     print(f"✗  Xray не запустился с новыми правилами: {err or state}. Возвращаю прежние.", file=sys.stderr)
     save_template(api, token, old, test_url)
+    restart_xray(api, token)
     sys.exit(1)
 
 
