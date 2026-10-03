@@ -1,0 +1,20 @@
+# Свои правила подписки для приложений на Mihomo (FlClash, Clash Verge Rev, Mihomo Party).
+# На сервере файл лежит в /etc/kit-sub/rules.yaml. Правка вступает в силу без перезапуска:
+# достаточно обновить подписку в приложении (или дождаться автообновления).
+#
+# Через VPN идёт ТОЛЬКО перечисленное ниже, всё остальное – напрямую.
+# Если удалить файл или список via_vpn, подписка снова отдаёт конфиг 3X-UI как есть.
+#
+# Формат – правило Mihomo без цели: ТИП,ЗНАЧЕНИЕ
+#   GEOSITE,youtube              – готовая категория (все домены сервиса)
+#   DOMAIN-SUFFIX,example.org    – домен и все его поддомены
+#   DOMAIN,api.example.org       – ровно этот домен
+#   DOMAIN-KEYWORD,example       – домен, в котором есть слово
+#   IP-CIDR,1.2.3.0/24,no-resolve – подсеть
+# Категории GEOSITE: https://github.com/MetaCubeX/meta-rules-dat (ветка meta, папка geo/geosite)
+
+via_vpn:
+  - GEOSITE,youtube
+  - GEOSITE,openai
+  # - GEOSITE,meta            # Instagram, Facebook, WhatsApp
+  # - DOMAIN-SUFFIX,example.org

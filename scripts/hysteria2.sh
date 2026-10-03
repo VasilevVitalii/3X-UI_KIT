@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Hysteria2 одной командой – https://github.com/itsnotkubrick/3X-UI_KIT
+# Hysteria2 одной командой – https://github.com/VasilevVitalii/3X-UI_KIT (форк itsnotkubrick/3X-UI_KIT)
 #
-# Установка:   bash <(curl -fsSL https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/hysteria2.sh)
+# Установка:   bash <(curl -fsSL https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/main/scripts/hysteria2.sh)
 # Управление:  hy2 help
 #
 # Ставит официальный бинарник Hysteria2 (версия закреплена ниже, контрольная
@@ -22,9 +22,9 @@ declare -A HY_SHA256=(
   [arm64]=c8dc653c3ba0a28d29a26b8fa52d2086f27c0927afddce95c09965e7174e78b0
 )
 KIT_VERSION="1.1"
-KIT_REPO_RAW="https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT"
+KIT_REPO_RAW="https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT"
 # Скрипт берём из тега релиза, а не из меняющейся ветки main.
-SELF_URL="$KIT_REPO_RAW/v$KIT_VERSION/scripts/hysteria2.sh"
+SELF_URL="$KIT_REPO_RAW/main/scripts/hysteria2.sh"
 
 BIN=/usr/local/bin/hysteria
 CLI=/usr/local/bin/hy2

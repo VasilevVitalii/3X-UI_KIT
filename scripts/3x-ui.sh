@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 3X-UI со всеми протоколами одной командой – https://github.com/itsnotkubrick/3X-UI_KIT
+# 3X-UI со всеми протоколами одной командой – https://github.com/VasilevVitalii/3X-UI_KIT (форк itsnotkubrick/3X-UI_KIT)
 #
-# Установка:  bash <(curl -fsSL https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/3x-ui.sh)
+# Установка:  bash <(curl -fsSL https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/main/scripts/3x-ui.sh)
 #
 # Ставит официальную панель 3X-UI (версия закреплена ниже) её собственным
 # установщиком, получает сертификат Let's Encrypt на IP, создаёт подключения
@@ -29,8 +29,8 @@ XUI_VERSION="v3.8.5"
 # SHA256 установщика 3X-UI этой версии: тег могут передвинуть, а хеш – нет (проверено 2026-09-30).
 XUI_INSTALL_SHA256="4e3fe7fe00ef8e904ce6a0e9c36fd8a0c7179fe5e786f23e31801aee84c6347d"
 KIT_VERSION="1.1"
-# kit и kit-sub берём из того же релиза, что и этот скрипт, а не из меняющейся ветки main.
-KIT_RAW="https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/v$KIT_VERSION"
+# Форк: kit и kit-sub берём из ветки main форка (подписанных релизов у форка нет).
+KIT_RAW="https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/main"
 # Ядро Xray для панели. С 26.7.x клиенты на Mihomo и sing-box (Hiddify, FlClash,
 # Clash Verge, Mihomo в XKeen) не проходят REALITY – проверено 2026-09-25.
 # 26.6.27 – последняя версия, с которой работают все клиенты и которую принимает 3X-UI.
@@ -240,7 +240,7 @@ ART
   echo
   echo "${B}3X-UI KIT${N} на основе панели 3X-UI (MHSanaei/3x-ui), ядра Xray и mihomo"
   echo
-  echo "  https://github.com/itsnotkubrick/3X-UI_KIT"
+  echo "  https://github.com/VasilevVitalii/3X-UI_KIT"
   echo "  ${D}it's not Kubrick. it's just a VPN.${N}"
   echo
   echo "Ниже – данные для входа в панель и подключения."
@@ -256,6 +256,8 @@ main() {
   if [[ -f $RESULT ]]; then
     warn "Панель 3X-UI удалена, но остались файлы прошлой установки – убираю их."
     systemctl disable --now kit-sub kit-update.timer >/dev/null 2>&1 || true
+    # Свои правила подписки переживают переустановку.
+    [[ -f /etc/kit-sub/rules.yaml ]] && cp /etc/kit-sub/rules.yaml /root/kit-rules.yaml.bak
     rm -rf /etc/systemd/system/kit-sub.service /etc/systemd/system/kit-update.service /etc/systemd/system/kit-update.timer /usr/local/lib/kit-sub /etc/kit-sub /etc/kit /usr/local/bin/kit \
       /etc/cron.d/kit-nginx-reload /etc/cron.d/kit-xui-menu /etc/cron.d/kit-sub-cert "$RESULT"
     systemctl daemon-reload
@@ -448,8 +450,8 @@ main() {
   [[ $SINGLE == yes ]] && setup_nginx
   install_kit_cli
   brand_xui_menu
-  # Автообновление kit и kit-sub: только подписанные релизы, выключается kit update --manual.
-  /usr/local/bin/kit update --auto >/dev/null 2>&1 || warn "Автообновление не включилось – включите позже: kit update --auto"
+  # Форк: автообновление не включаем – подписанный релиз автора перезаписал бы наш kit-sub.
+  # Обновления автора вливаются в форк вручную, после чего – переустановка файлов из форка.
 
   # --- файрвол ---
   if [[ $UFW == yes ]]; then
@@ -533,7 +535,7 @@ install_xui() { # порт путь логин пароль
   say "Ставлю 3X-UI $XUI_VERSION официальным установщиком (пара минут)"
   curl -fsSL --retry 3 -o "$tmp" "https://raw.githubusercontent.com/$XUI_REPO/$XUI_VERSION/install.sh"
   [[ $(sha256sum "$tmp" | awk '{print $1}') == "$XUI_INSTALL_SHA256" ]] \
-    || die "Установщик 3X-UI $XUI_VERSION не совпал с проверенным (SHA256) – не запускаю. Сообщите нам: github.com/itsnotkubrick/3X-UI_KIT/issues"
+    || die "Установщик 3X-UI $XUI_VERSION не совпал с проверенным (SHA256) – не запускаю. Сообщите нам: github.com/VasilevVitalii/3X-UI_KIT/issues"
   if ! XUI_NONINTERACTIVE=1 XUI_SSL_MODE="${PANEL_SSL/custom/none}" XUI_SERVER_IP="$HOST" \
       XUI_PANEL_PORT="$1" XUI_WEB_BASE_PATH="$2" \
       XUI_USERNAME="$3" XUI_PASSWORD="$4" \
@@ -922,7 +924,7 @@ install_kit_file() {
   bash -n /usr/local/bin/kit || die "Команда kit скачалась повреждённой"
 }
 
-KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main/scripts/3x-ui.sh)"
+KIT_INSTALL_CMD="bash <(curl -fsSL https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/main/scripts/3x-ui.sh)"
 
 # После «x-ui → Uninstall» меню подсказывает команду официального установщика –
 # меняем её на нашу. Только в echo: вызов установщика в «Update» не трогаем.
@@ -1216,6 +1218,21 @@ install_kit_sub_file() {
   if [[ -n $src ]]; then install -m 644 "$src" /usr/local/lib/kit-sub/kit_sub.py
   else curl -fsSL --retry 3 -o /usr/local/lib/kit-sub/kit_sub.py "$KIT_SUB_URL"; fi
   python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" /usr/local/lib/kit-sub/kit_sub.py || die "kit-sub скачался повреждённым"
+  install_kit_rules
+}
+
+# Свои правила подписки (/etc/kit-sub/rules.yaml): существующий файл не трогаем,
+# после переустановки возвращаем сохранённый, иначе кладём пример.
+install_kit_rules() {
+  local f=/etc/kit-sub/rules.yaml d
+  [[ -f $f ]] && return 0
+  if [[ -f /root/kit-rules.yaml.bak ]]; then
+    install -m 644 /root/kit-rules.yaml.bak "$f"
+    return 0
+  fi
+  d=$(dirname "${BASH_SOURCE[0]}")
+  if [[ -f $d/rules.example.yaml && ${BASH_SOURCE[0]} != /dev/fd/* ]]; then install -m 644 "$d/rules.example.yaml" "$f"
+  else curl -fsSL --retry 3 -o "$f" "$KIT_RAW/scripts/rules.example.yaml" && chmod 644 "$f" || warn "Пример правил не скачался – подписка работает без своих правил."; fi
 }
 
 install_kit_sub() {

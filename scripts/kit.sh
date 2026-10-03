@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # kit – управление сервером 3X-UI KIT: пользователи, обновление, резервная копия.
-# https://github.com/itsnotkubrick/3X-UI_KIT
+# https://github.com/VasilevVitalii/3X-UI_KIT (форк itsnotkubrick/3X-UI_KIT)
 #
 #   kit user add имя [--gb 50] [--days 30] [--devices 3]
 #   kit user list | link имя | limit имя [--gb N] [--days N] | off имя | on имя | del имя
@@ -10,9 +10,9 @@ set -Eeuo pipefail
 export LC_ALL=C.UTF-8  # ширина колонок по символам, а не байтам
 
 KIT_VERSION="1.1"
-KIT_RAW="https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/main"
+KIT_RAW="https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/main"
 # Файлы новой версии берём из её тега (v1.2 и т.д.), а не из меняющейся ветки main.
-kit_ref_raw() { echo "https://raw.githubusercontent.com/itsnotkubrick/3X-UI_KIT/v$1"; }
+kit_ref_raw() { echo "https://raw.githubusercontent.com/VasilevVitalii/3X-UI_KIT/v$1"; }
 
 XUI_ENV=/etc/x-ui/install-result.env
 KIT_ENV=/etc/kit/kit.env
@@ -402,6 +402,12 @@ auto_off() {
 
 cmd_update() {
   local force="" unattended=no latest tmp
+  # Форк: подписанных релизов нет, а релиз автора затёр бы свои правила подписки.
+  if [[ ${1:-} == --manual ]]; then auto_off; say "Автообновление выключено."; return; fi
+  die "В форке kit update не используется. Обновиться из форка:
+    cd /root/3X-UI_KIT && git pull
+    install -m 755 scripts/kit.sh /usr/local/bin/kit
+    install -m 644 scripts/kit-sub.py /usr/local/lib/kit-sub/kit_sub.py && systemctl restart kit-sub"
   while [[ $# -gt 0 ]]; do
     case $1 in
       --force) force=yes ;;

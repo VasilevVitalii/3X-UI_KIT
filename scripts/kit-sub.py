@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Подписка с учётом приложения – посредник перед подпиской 3X-UI.
 
-https://github.com/itsnotkubrick/3X-UI_KIT
+https://github.com/VasilevVitalii/3X-UI_KIT (форк itsnotkubrick/3X-UI_KIT)
 
 Слушает публичный адрес подписки (HTTPS) и ходит в подписку 3X-UI на 127.0.0.1:
   * Clash / Mihomo (Clash Verge, FlClash, Mihomo Party…) – конфиг 3X-UI плюс AmneziaWG
@@ -43,6 +43,14 @@ PASS_HEADERS = ("content-type", "content-disposition", "profile-title", "profile
 with open(CONFIG, encoding="utf-8") as f:
     CONF = json.load(f)
 PATH = "/" + CONF["path"].strip("/") + "/"
+# Свои правила маршрутизации для Clash/Mihomo: через VPN – только перечисленное, остальное напрямую.
+# Файл читается при каждом запросе подписки: правка вступает в силу без перезапуска.
+RULES_FILE = os.environ.get("KIT_SUB_RULES") or "/etc/kit-sub/rules.yaml"
+RULE_RE = re.compile(r"^[A-Z][A-Z0-9-]*,[^,\s]+(,no-resolve)?$")
+DEFAULT_SNIFFER = {
+    "enable": True,
+    "sniff": {"TLS": {"ports": [443, 8443]}, "HTTP": {"ports": [80, "8080-8880"]}, "QUIC": {"ports": [443]}},
+}
 
 
 def log(msg):
@@ -127,6 +135,50 @@ def merge_awg(main_yaml, awg_yaml):
     return yaml.safe_dump(main, allow_unicode=True, sort_keys=False).encode()
 
 
+def load_rules():
+    """Правила из RULES_FILE: список «ТИП,ЗНАЧЕНИЕ» в ключе via_vpn. Нет файла – None (как раньше)."""
+    try:
+        with open(RULES_FILE, encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        return None
+    except (OSError, yaml.YAMLError) as e:
+        log(f"не удалось прочитать {RULES_FILE}: {e}")
+        return None
+    items = data.get("via_vpn") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        log(f"{RULES_FILE}: нет списка via_vpn – правила не применяю")
+        return None
+    rules = []
+    for item in items:
+        r = re.sub(r"\s*,\s*", ",", str(item).strip())
+        if RULE_RE.match(r):
+            rules.append(r)
+        else:
+            log(f"{RULES_FILE}: пропускаю непонятное правило {item!r}")
+    return rules
+
+
+def apply_rules(clash_yaml, rules):
+    """Заменяет rules в Clash-конфиге: перечисленное – через VPN (первая группа прокси), остальное – DIRECT."""
+    cfg = yaml.safe_load(clash_yaml)
+    if not isinstance(cfg, dict):
+        return clash_yaml
+    groups = [g.get("name") for g in cfg.get("proxy-groups") or [] if isinstance(g, dict) and g.get("name")]
+    proxies = [p.get("name") for p in cfg.get("proxies") or [] if isinstance(p, dict) and p.get("name")]
+    target = groups[0] if groups else proxies[0] if proxies else None
+    if target is None:
+        return clash_yaml
+    out = []
+    for r in rules:
+        kind, value, *rest = r.split(",")
+        out.append(",".join([kind, value, target, *rest]))
+    cfg["rules"] = out + ["MATCH,DIRECT"]
+    # Правила по доменам работают и без fake-ip DNS: имя сайта берём из TLS/HTTP/QUIC.
+    cfg.setdefault("sniffer", DEFAULT_SNIFFER)
+    return yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False).encode()
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "nginx"
     sys_version = ""
@@ -189,6 +241,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     body = merge_awg(body, abody)
             elif code == 200 and "text/plain" in headers.get("content-type", ""):
                 body = strip_links(body)
+            if code == 200 and clash:
+                rules = load_rules()
+                if rules:
+                    body = apply_rules(body, rules)
         except (yaml.YAMLError, UnicodeError) as e:
             log(f"не удалось обработать подписку: {e}")
 
