@@ -23,6 +23,7 @@ import ssl
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import yaml
@@ -47,6 +48,7 @@ PATH = "/" + CONF["path"].strip("/") + "/"
 # Файл читается при каждом запросе подписки: правка вступает в силу без перезапуска.
 RULES_FILE = os.environ.get("KIT_SUB_RULES") or "/etc/kit-sub/rules.yaml"
 RULE_RE = re.compile(r"^[A-Z][A-Z0-9-]*,[^,\s]+(,no-resolve)?$")
+GEOSITE_MRS = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/"
 DEFAULT_SNIFFER = {
     "enable": True,
     "sniff": {"TLS": {"ports": [443, 8443]}, "HTTP": {"ports": [80, "8080-8880"]}, "QUIC": {"ports": [443]}},
@@ -190,9 +192,22 @@ def apply_rules(clash_yaml, rules):
     if target is None:
         return clash_yaml
     out = []
+    providers = cfg.get("rule-providers") or {}
     for r in rules:
         kind, value, *rest = r.split(",")
-        out.append(",".join([kind, value, target, *rest]))
+        if kind == "GEOSITE":
+            # Категория – файлом .mrs из базы MetaCubeX, а не из GEOSITE.dat приложения: во
+            # встроенной базе FlClash части категорий нет (viber), и профиль не загружается.
+            cat = value.lower()
+            name = "geosite-" + re.sub(r"[^a-z0-9-]", "_", cat)
+            providers[name] = {"type": "http", "format": "mrs", "behavior": "domain",
+                               "url": GEOSITE_MRS + urllib.parse.quote(cat) + ".mrs",
+                               "path": f"./rules/{name}.mrs", "interval": 86400}
+            out.append(f"RULE-SET,{name},{target}")
+        else:
+            out.append(",".join([kind, value, target, *rest]))
+    if providers:
+        cfg["rule-providers"] = providers
     cfg["rules"] = out + ["MATCH,DIRECT"]
     # Правила по доменам работают и без fake-ip DNS: имя сайта берём из TLS/HTTP/QUIC.
     cfg.setdefault("sniffer", DEFAULT_SNIFFER)
