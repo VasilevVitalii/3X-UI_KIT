@@ -407,7 +407,8 @@ cmd_update() {
   die "В форке kit update не используется. Обновиться из форка:
     cd /root/3X-UI_KIT && git pull
     install -m 755 scripts/kit.sh /usr/local/bin/kit
-    install -m 644 scripts/kit-sub.py /usr/local/lib/kit-sub/kit_sub.py && systemctl restart kit-sub"
+    install -m 644 scripts/kit-sub.py /usr/local/lib/kit-sub/kit_sub.py && systemctl restart kit-sub
+    install -m 644 scripts/kit-whitelist.py /usr/local/lib/kit-sub/kit_whitelist.py && kit whitelist sync"
   while [[ $# -gt 0 ]]; do
     case $1 in
       --force) force=yes ;;
@@ -548,6 +549,10 @@ ${B}kit${N} $KIT_VERSION – управление сервером 3X-UI KIT
   kit user off имя  /  kit user on имя                    выключить и включить
   kit user del имя                                        удалить
 
+Белый список (через VPN выходит только то, что в /etc/kit-sub/rules.yaml):
+  kit whitelist on | off | status                          включить, выключить, состояние
+  kit whitelist test домен                                куда сервер отправит соединение
+
 Сервер:
   kit update            обновить kit и подписку kit-sub сейчас (пользователи и ссылки не меняются)
   kit update --manual   выключить автообновление (--auto – включить обратно)
@@ -564,6 +569,7 @@ case "${1:-} ${2:-}" in
   "user off") cmd_toggle "${3:-}" false ;;
   "user on") cmd_toggle "${3:-}" true ;;
   "user del") shift 2; cmd_del "$@" ;;
+  "whitelist "*) shift; exec python3 /usr/local/lib/kit-sub/kit_whitelist.py "$@" ;;
   "update "*) shift; cmd_update "$@" ;;
   "backup "*) cmd_backup ;;
   "version "*|"--version "*|"-v "*) cmd_version ;;

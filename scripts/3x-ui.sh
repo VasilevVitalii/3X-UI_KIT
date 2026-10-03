@@ -255,10 +255,10 @@ main() {
   # Панель удалили через меню x-ui, а наши файлы остались – убираем их и ставим заново.
   if [[ -f $RESULT ]]; then
     warn "Панель 3X-UI удалена, но остались файлы прошлой установки – убираю их."
-    systemctl disable --now kit-sub kit-update.timer >/dev/null 2>&1 || true
+    systemctl disable --now kit-sub kit-update.timer kit-whitelist.path kit-whitelist.timer >/dev/null 2>&1 || true
     # Свои правила подписки переживают переустановку.
     [[ -f /etc/kit-sub/rules.yaml ]] && cp /etc/kit-sub/rules.yaml /root/kit-rules.yaml.bak
-    rm -rf /etc/systemd/system/kit-sub.service /etc/systemd/system/kit-update.service /etc/systemd/system/kit-update.timer /usr/local/lib/kit-sub /etc/kit-sub /etc/kit /usr/local/bin/kit \
+    rm -rf /etc/systemd/system/kit-sub.service /etc/systemd/system/kit-update.service /etc/systemd/system/kit-update.timer /etc/systemd/system/kit-whitelist.service /etc/systemd/system/kit-whitelist.path /etc/systemd/system/kit-whitelist.timer /usr/local/lib/kit-sub /etc/kit-sub /etc/kit /usr/local/bin/kit \
       /etc/cron.d/kit-nginx-reload /etc/cron.d/kit-xui-menu /etc/cron.d/kit-sub-cert "$RESULT"
     systemctl daemon-reload
     # Наш nginx держит 443 – без этого проверка порта ниже не пустит REALITY.
@@ -1218,7 +1218,16 @@ install_kit_sub_file() {
   if [[ -n $src ]]; then install -m 644 "$src" /usr/local/lib/kit-sub/kit_sub.py
   else curl -fsSL --retry 3 -o /usr/local/lib/kit-sub/kit_sub.py "$KIT_SUB_URL"; fi
   python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" /usr/local/lib/kit-sub/kit_sub.py || die "kit-sub скачался повреждённым"
+  install_kit_whitelist
   install_kit_rules
+}
+
+# Белый список сервера (kit whitelist): скрипт рядом с kit-sub, включается командой.
+install_kit_whitelist() {
+  local d f=/usr/local/lib/kit-sub/kit_whitelist.py
+  d=$(dirname "${BASH_SOURCE[0]}")
+  if [[ -f $d/kit-whitelist.py && ${BASH_SOURCE[0]} != /dev/fd/* ]]; then install -m 644 "$d/kit-whitelist.py" "$f"
+  else curl -fsSL --retry 3 -o "$f" "$KIT_RAW/scripts/kit-whitelist.py" || warn "kit-whitelist не скачался – kit whitelist работать не будет."; fi
 }
 
 # Свои правила подписки (/etc/kit-sub/rules.yaml): существующий файл не трогаем,
