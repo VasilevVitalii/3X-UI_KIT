@@ -56,6 +56,13 @@ api() { # METHOD path [json]
 # (subId в 3X-UI обязан быть уникальным) и теми же лимитами; kit-sub подмешивает её в Clash.
 awg_ids() { api GET inbounds/list | jq -r '[.[] | select(.protocol == "amneziawg") | .id] | sort | .[]'; }
 non_awg_ids() { api GET inbounds/list | jq -c '[.[] | select(.protocol != "amneziawg") | .id]'; }
+# flow для новых пользователей: xtls-rprx-vision, если есть VLESS REALITY поверх TCP. Во входы панель
+# подставляет flow из записи клиента сама и только туда, где он применим (XHTTP, Hysteria2 – без него).
+new_flow() {
+  api GET inbounds/list | jq -r 'def obj: if type == "string" then fromjson else . end;
+    if any(.[]; .protocol == "vless" and (.streamSettings | obj | .security == "reality" and (.network == "tcp" or .network == "raw")))
+    then "xtls-rprx-vision" else "" end'
+}
 
 awg_attach() { # имя subId [лимит-байт] [срок-мс] [устройств]
   local name=$1 sid=$2 total=${3:-0} exp=${4:-0} lim=${5:-0} n=1 id email have
@@ -124,8 +131,8 @@ cmd_add() {
   [[ $ids != "[]" ]] || die "На сервере нет подключений."
   sid=$(rand_id)
   body=$(jq -nc --arg e "$name" --arg s "$sid" --argjson t "$(gb_bytes "$gb")" --argjson x "$(days_ms "$days")" \
-    --argjson ip "$devices" --argjson ids "$ids" '{client: {email: $e, subId: $s, totalGB: $t, expiryTime: $x,
-    limitIp: $ip, enable: true, comment: "kit"}, inboundIds: $ids}')
+    --argjson ip "$devices" --argjson ids "$ids" --arg f "$(new_flow)" '{client: {email: $e, subId: $s, totalGB: $t, expiryTime: $x,
+    limitIp: $ip, enable: true, comment: "kit", flow: $f}, inboundIds: $ids}')
   api POST clients/add "$body" >/dev/null
   awg_attach "$name" "$sid" "$(gb_bytes "$gb")" "$(days_ms "$days")" "$devices"
   say "Пользователь $name добавлен во все протоколы ($(api GET inbounds/list | jq length))$( ((gb)) && echo ", лимит $gb ГБ")$( ((days)) && echo ", на $days дн")."
@@ -174,12 +181,13 @@ cmd_list() {
 }
 
 # Меняет все записи пользователя (основную и «двойников» AmneziaWG), каждую – от её собственных данных.
+# flow передаём обязательно: запись без него панель сохраняет с пустым flow и стирает vision у REALITY.
 update_user() { # имя jq-фильтр [аргументы jq...]
   local name=$1 filter=$2 e rec body
   shift 2
   for e in $(emails_of "$name"); do
     rec=$(client "$e")
-    body=$(jq -c "$@" "{email, subId, totalGB, expiryTime, limitIp, enable, comment} | $filter" <<<"$rec")
+    body=$(jq -c "$@" "{email, subId, totalGB, expiryTime, limitIp, enable, comment, flow: (.flow // \"\")} | $filter" <<<"$rec")
     api POST "clients/update/$e" "$body" >/dev/null
   done
 }
